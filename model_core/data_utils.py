@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 from typing import List, Union, Callable, Tuple
+from dotenv import load_dotenv
 
 import PIL
 import PIL.Image
@@ -12,7 +13,9 @@ from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normal
 
 logger = logging.getLogger(__name__)
 
-default_data_dir = Path(os.getenv("DATA_DIR"))
+load_dotenv(override=True)
+
+DEFAULT_DATA_DIR = Path(os.getenv("DATA_DIR"))
 
 def _convert_image_to_rgb(image: PIL.Image.Image) -> PIL.Image.Image:
     return image.convert("RGB")
@@ -117,7 +120,7 @@ class FashionIQDataset(Dataset):
         dress_types: List[str], 
         mode: str, 
         preprocess: Callable,
-        data_dir: Union[str, Path] = default_data_dir
+        data_dir: Union[str, Path] = DEFAULT_DATA_DIR
     ):
         """
         :param split: dataset split, should be in ['test', 'train', 'val']
@@ -168,11 +171,11 @@ class FashionIQDataset(Dataset):
                 reference_name = self.triplets[index]['candidate']
 
                 if self.split == 'train':
-                    ref_path = self.data_dir / "images" / f"{reference_name}.jpg"
+                    ref_path = self.data_dir / "images" / f"{reference_name}.png"
                     reference_image = self.preprocess(PIL.Image.open(ref_path))
 
                     target_name = self.triplets[index]["target"]
-                    target_path = self.data_dir / "images" / f"{target_name}.jpg"
+                    target_path = self.data_dir / "images" / f"{target_name}.png"
                     target_image = self.preprocess(PIL.Image.open(target_path))
                     return reference_image, target_image, image_captions
 
@@ -181,13 +184,13 @@ class FashionIQDataset(Dataset):
                     return reference_name, target_name, image_captions
 
                 elif self.split == 'test':
-                    ref_path = self.data_dir / "images" / f"{reference_name}.jpg"
+                    ref_path = self.data_dir / "images" / f"{reference_name}.png"
                     reference_image = self.preprocess(PIL.Image.open(ref_path))
                     return reference_name, reference_image, image_captions
 
             elif self.mode == 'classic':
                 image_name = self.image_names[index]
-                image_path = self.data_dir / "images" / f"{image_name}.jpg"
+                image_path = self.data_dir / "images" / f"{image_name}.png"
                 image = self.preprocess(PIL.Image.open(image_path))                
                 return image_name, image
 
@@ -218,7 +221,7 @@ class CIRRDataset(Dataset):
         split: str, 
         mode: str, 
         preprocess: Callable,
-        data_dir: Union[str, Path] = default_data_dir,
+        data_dir: Union[str, Path] = DEFAULT_DATA_DIR,
     ):
         """
         :param split: dataset split, should be in ['test', 'train', 'val']
