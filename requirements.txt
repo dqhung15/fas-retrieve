@@ -14,6 +14,7 @@ uvicorn[standard]    # ASGI server to run FastAPI
 pydantic             # Data validation and schemas
 python-dotenv        # To load .env secrets
 pyyaml               # To parse config.yaml
+python-multipart
 
 # --- Databases ---
 qdrant-client        # Python client for Qdrant Vector DB
