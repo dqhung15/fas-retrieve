@@ -4,5 +4,6 @@ venv/
 .env
 
 /data/*
+/checkpoint/*
 
 __pycache__/

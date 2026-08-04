@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fashion Retrieval AI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- Sidebar Controls -->
+    <aside class="control-panel">
+      <h2>AI Fashion Search</h2>
+
+      <div class="input-group">
+        <label for="dressType">Category</label>
+        <select id="dressType">
+          <option value="dress">Dress</option>
+          <option value="shirt">Shirt</option>
+          <option value="toptee">Top & Tee</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <label for="imageInput">Reference Image</label>
+        <input type="file" id="imageInput" accept="image/jpeg, image/png, image/jpg">
+        <img id="imagePreview" class="preview-img" hidden alt="Query preview">
+      </div>
+
+      <div class="input-group">
+        <label for="textInput">Modification Request</label>
+        <input type="text" id="textInput" placeholder="e.g., 'change color to blue'">
+      </div>
+
+      <button id="searchBtn" class="primary-btn">Search</button>
+      <p id="statusMsg" class="status-message"></p>
+    </aside>
+
+    <!-- Main Results Area -->
+    <main class="results-panel">
+      <h3>Retrieved Results</h3>
+      <p class="subtitle">Click an image to select it. This helps train the AI!</p>
+      <div id="resultsGrid" class="image-grid">
+        <!-- Results will be injected here via JavaScript -->
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
