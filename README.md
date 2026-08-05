@@ -1,3 +1,5 @@
+# fas-retrieve
+
 docker compose up -d
 docker exec -i ml_postgres psql -U admin -d tracking_db < schema.sql 
 python -m model_core.extract_embeddings
