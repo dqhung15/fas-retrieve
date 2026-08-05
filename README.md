@@ -53,26 +53,26 @@ POSTGRES_DB=tracking_db
 COMBINER_CHECKPOINT=./checkpoint/combiner_model.pth
 ```
 
-3. Start Services
+#### 3. Start Services
 
 ```bash
 docker compose up -d
 ```
 
-4. Initialize Database Schema
+#### 4. Initialize Database Schema
 
 ```bash
 docker exec -i ml_postgres psql -U admin -d tracking_db < schema.sql
 ```
 
-5. Extract Embeddings & Populate Vector Search
+#### 5. Extract Embeddings & Populate Vector Search
 
 ```bash
 python -m model_core.extract_embeddings
 python -m model_core.populate_qdrant
 ```
 
-6. Create Airflow Admin User
+#### 6. Create Airflow Admin User
 
 ```bash
 docker exec ml_airflow airflow users create \
