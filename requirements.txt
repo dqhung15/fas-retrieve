@@ -22,3 +22,4 @@ psycopg2-binary      # PostgreSQL adapter for tracking user logs
 
 # --- MLOps & Tracking ---
 mlflow               # To track experiments and register models
+apache-airflow       # For local DAG development and autocomplete

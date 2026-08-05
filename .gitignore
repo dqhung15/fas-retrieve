@@ -7,3 +7,5 @@ venv/
 /checkpoint/*
 
 __pycache__/
+
+*.db
