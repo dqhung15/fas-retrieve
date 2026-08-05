@@ -1,0 +1,25 @@
+# --- Core ML & Vision ---
+torch
+torchvision
+pillow
+numpy
+ftfy                 # Required by CLIP
+regex                # Required by CLIP
+tqdm                 # Required by CLIP
+git+https://github.com/openai/CLIP.git  # Official OpenAI CLIP model
+
+# --- Backend API ---
+fastapi              # High-performance web framework
+uvicorn[standard]    # ASGI server to run FastAPI
+pydantic             # Data validation and schemas
+python-dotenv        # To load .env secrets
+pyyaml               # To parse config.yaml
+python-multipart
+
+# --- Databases ---
+qdrant-client        # Python client for Qdrant Vector DB
+psycopg2-binary      # PostgreSQL adapter for tracking user logs
+
+# --- MLOps & Tracking ---
+mlflow               # To track experiments and register models
+apache-airflow       # For local DAG development and autocomplete

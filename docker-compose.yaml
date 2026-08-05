@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ml_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
+      POSTGRES_DB: ${POSTGRES_DB:-tracking_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-tracking_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ml_qdrant
+    ports:
+      - "6333:6333" # REST API
+      - "6334:6334" # gRPC API 
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    container_name: ml_api
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin123}
+      - POSTGRES_DB=${POSTGRES_DB:-tracking_db}
+      - POSTGRES_HOST=postgres
+      - QDRANT_HOST=qdrant
+      - COMBINER_CHECKPOINT=${COMBINER_CHECKPOINT}
+    volumes:
+      - ./data:/app/data
+      - ./checkpoint:/app/checkpoint
+      - ./model_core:/app/model_core
+    depends_on:
+      - postgres
+      - qdrant
+
+  ui:
+    build:
+      context: services/ui
+    container_name: ml_ui
+    ports:
+      - "3000:80"
+    volumes:
+      - ./data:/usr/share/nginx/html/data:ro
+    depends_on:
+      - api
+
+  mlflow:
+    image: python:3.10-slim
+    container_name: ml_mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlops/mlflow:/mlflow
+    command: >
+      bash -c "pip install mlflow && 
+      mlflow server --host 0.0.0.0 
+      --port 5000 
+      --backend-store-uri sqlite:////mlflow/mlflow.db 
+      --default-artifact-root /mlflow/artifacts 
+      --allowed-hosts mlflow,mlflow:5000,localhost,0.0.0.0"
+
+  airflow:
+    build:
+      context: ./mlops/airflow
+    container_name: ml_airflow
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres/${POSTGRES_DB:-tracking_db}
+      - PYTHONPATH=/opt/airflow
+    volumes:
+      - ./mlops/airflow/dags:/opt/airflow/dags
+      - ./mlops/airflow/scripts:/opt/airflow/scripts
+      - ./model_core:/opt/airflow/model_core
+      - ./data:/app/data
+      - ./checkpoint:/app/checkpoint
+    command: standalone
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+    name: ml_postgres_data
+  qdrant_data:
+    name: ml_qdrant_data

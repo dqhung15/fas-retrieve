@@ -1,0 +1,11 @@
+.venv/
+venv/
+
+.env
+
+/data/*
+/checkpoint/*
+
+__pycache__/
+
+*.db

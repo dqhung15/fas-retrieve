@@ -1,0 +1,8 @@
+{
+  "name": "fashion-retrieval-ui",
+  "version": "1.0.0",
+  "description": "Frontend UI for Fashion Retrieval API",
+  "scripts": {
+    "start": "npx serve src"
+  }
+}

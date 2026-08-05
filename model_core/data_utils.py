@@ -1,6 +1,9 @@
 import json
+import logging
+import os
 from pathlib import Path
-from typing import List
+from typing import List, Union, Callable, Tuple
+from dotenv import load_dotenv
 
 import PIL
 import PIL.Image
@@ -8,10 +11,13 @@ import torchvision.transforms.functional as F
 from torch.utils.data import Dataset
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
 
-base_path = 'Dataset'
+logger = logging.getLogger(__name__)
 
+load_dotenv(override=True)
 
-def _convert_image_to_rgb(image):
+DEFAULT_DATA_DIR = Path(os.getenv("DATA_DIR"))
+
+def _convert_image_to_rgb(image: PIL.Image.Image) -> PIL.Image.Image:
     return image.convert("RGB")
 
 
@@ -28,7 +34,7 @@ class SquarePad:
         """
         self.size = size
 
-    def __call__(self, image):
+    def __call__(self, image: PIL.Image.Image) -> PIL.Image.Image:
         w, h = image.size
         max_wh = max(w, h)
         hp = int((max_wh - w) / 2)
@@ -51,7 +57,7 @@ class TargetPad:
         self.size = size
         self.target_ratio = target_ratio
 
-    def __call__(self, image):
+    def __call__(self, image: PIL.Image.Image) -> PIL.Image.Image:
         w, h = image.size
         actual_ratio = max(w, h) / min(w, h)
         if actual_ratio < self.target_ratio:  # check if the ratio is above or below the target ratio
@@ -63,7 +69,7 @@ class TargetPad:
         return F.pad(image, padding, 0, 'constant')
 
 
-def squarepad_transform(dim: int):
+def squarepad_transform(dim: int) -> Compose:
     """
     CLIP-like preprocessing transform on a square padded image
     :param dim: image output dimension
@@ -79,7 +85,7 @@ def squarepad_transform(dim: int):
     ])
 
 
-def targetpad_transform(target_ratio: float, dim: int):
+def targetpad_transform(target_ratio: float, dim: int) -> Compose:
     """
     CLIP-like preprocessing transform computed after using TargetPad pad
     :param target_ratio: target ratio for TargetPad
@@ -108,7 +114,14 @@ class FashionIQDataset(Dataset):
     The dataset manage an arbitrary numbers of FashionIQ category, e.g. only dress, dress+toptee+shirt, dress+shirt...
     """
 
-    def __init__(self, split: str, dress_types: List[str], mode: str, preprocess: callable):
+    def __init__(
+        self, 
+        split: str, 
+        dress_types: List[str], 
+        mode: str, 
+        preprocess: Callable,
+        data_dir: Union[str, Path] = DEFAULT_DATA_DIR
+    ):
         """
         :param split: dataset split, should be in ['test', 'train', 'val']
         :param dress_types: list of fashionIQ category
@@ -123,6 +136,7 @@ class FashionIQDataset(Dataset):
         self.mode = mode
         self.dress_types = dress_types
         self.split = split
+        self.data_dir = Path(data_dir) / "fashionIQ_dataset"
 
         if mode not in ['relative', 'classic']:
             raise ValueError("mode should be in ['relative', 'classic']")
@@ -137,44 +151,47 @@ class FashionIQDataset(Dataset):
         # get triplets made by (reference_image, target_image, a pair of relative captions)
         self.triplets: List[dict] = []
         for dress_type in dress_types:
-            with open(f'{base_path}\\fashionIQ_dataset\captions\cap.{dress_type}.{split}.json') as f:
+            caption_path = self.data_dir / "captions" / f"cap.{dress_type}.{split}.json"
+            with open(caption_path, "r", encoding="utf-8") as f:
                 self.triplets.extend(json.load(f))
 
         # get the image names
         self.image_names: list = []
         for dress_type in dress_types:
-            with open(f'{base_path}\\fashionIQ_dataset\image_splits\split.{dress_type}.{split}.json') as f:
+            split_path = self.data_dir / "image_splits" / f"split.{dress_type}.{split}.json"
+            with open(split_path, "r", encoding="utf-8") as f:
                 self.image_names.extend(json.load(f))
 
         print(f"FashionIQ {split} - {dress_types} dataset in {mode} mode initialized")
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int):
         try:
             if self.mode == 'relative':
                 image_captions = self.triplets[index]['captions']
                 reference_name = self.triplets[index]['candidate']
 
                 if self.split == 'train':
-                    reference_image_path = f'{base_path}\\fashionIQ_dataset\\images\\{reference_name}.jpg'
-                    reference_image = self.preprocess(PIL.Image.open(reference_image_path))
-                    target_name = self.triplets[index]['target']
-                    target_image_path = f'{base_path}\\fashionIQ_dataset\\images\\{target_name}.jpg"'
-                    target_image = self.preprocess(PIL.Image.open(target_image_path))
+                    ref_path = self.data_dir / "images" / f"{reference_name}.png"
+                    reference_image = self.preprocess(PIL.Image.open(ref_path))
+
+                    target_name = self.triplets[index]["target"]
+                    target_path = self.data_dir / "images" / f"{target_name}.png"
+                    target_image = self.preprocess(PIL.Image.open(target_path))
                     return reference_image, target_image, image_captions
 
                 elif self.split == 'val':
-                    target_name = self.triplets[index]['target']
+                    target_name = self.triplets[index]["target"]                    
                     return reference_name, target_name, image_captions
 
                 elif self.split == 'test':
-                    reference_image_path = f'{base_path}\\fashionIQ_dataset\\images\\{reference_name}.jpg'
-                    reference_image = self.preprocess(PIL.Image.open(reference_image_path))
+                    ref_path = self.data_dir / "images" / f"{reference_name}.png"
+                    reference_image = self.preprocess(PIL.Image.open(ref_path))
                     return reference_name, reference_image, image_captions
 
             elif self.mode == 'classic':
                 image_name = self.image_names[index]
-                image_path = f'{base_path}\\fashionIQ_dataset\\images\\{image_name}.jpg'
-                image = self.preprocess(PIL.Image.open(image_path))
+                image_path = self.data_dir / "images" / f"{image_name}.png"
+                image = self.preprocess(PIL.Image.open(image_path))                
                 return image_name, image
 
             else:
@@ -182,13 +199,10 @@ class FashionIQDataset(Dataset):
         except Exception as e:
             print(f"Exception: {e}")
 
-    def __len__(self):
-        if self.mode == 'relative':
+    def __len__(self) -> int:
+        if self.mode == "relative":
             return len(self.triplets)
-        elif self.mode == 'classic':
-            return len(self.image_names)
-        else:
-            raise ValueError("mode should be in ['relative', 'classic']")
+        return len(self.image_names)
 
 
 class CIRRDataset(Dataset):
@@ -202,7 +216,13 @@ class CIRRDataset(Dataset):
                 - (pair_id, reference_name, rel_caption, group_members) when split == test1
     """
 
-    def __init__(self, split: str, mode: str, preprocess: callable):
+    def __init__(
+        self, 
+        split: str, 
+        mode: str, 
+        preprocess: Callable,
+        data_dir: Union[str, Path] = DEFAULT_DATA_DIR,
+    ):
         """
         :param split: dataset split, should be in ['test', 'train', 'val']
         :param mode: dataset mode, should be in ['relative', 'classic']:
@@ -216,62 +236,54 @@ class CIRRDataset(Dataset):
         self.preprocess = preprocess
         self.mode = mode
         self.split = split
+        self.data_dir = Path(data_dir) / "cirr_dataset"
 
-        if split not in ['test1', 'train', 'val']:
+        if split not in ["test1", "train", "val"]:
             raise ValueError("split should be in ['test1', 'train', 'val']")
-        if mode not in ['relative', 'classic']:
+        if mode not in ["relative", "classic"]:
             raise ValueError("mode should be in ['relative', 'classic']")
 
-        # get triplets made by (reference_image, target_image, relative caption)
-        with open(base_path / 'cirr_dataset' / 'cirr' / 'captions' / f'cap.rc2.{split}.json') as f:
+        captions_path = self.data_dir / "cirr" / "captions" / f"cap.rc2.{split}.json"
+        with open(captions_path, "r", encoding="utf-8") as f:
             self.triplets = json.load(f)
 
-        # get a mapping from image name to relative path
-        with open(base_path / 'cirr_dataset' / 'cirr' / 'image_splits' / f'split.rc2.{split}.json') as f:
+        splits_path = self.data_dir / "cirr" / "image_splits" / f"split.rc2.{split}.json"
+        with open(splits_path, "r", encoding="utf-8") as f:
             self.name_to_relpath = json.load(f)
 
-        print(f"CIRR {split} dataset in {mode} mode initialized")
+        logger.info(f"CIRR {split} dataset in {mode} mode initialized")
 
-    def __getitem__(self, index):
-        try:
-            if self.mode == 'relative':
-                group_members = self.triplets[index]['img_set']['members']
-                reference_name = self.triplets[index]['reference']
-                rel_caption = self.triplets[index]['caption']
+    def __getitem__(self, index: int):
+        if self.mode == "relative":
+            group_members = self.triplets[index]["img_set"]["members"]
+            reference_name = self.triplets[index]["reference"]
+            rel_caption = self.triplets[index]["caption"]
 
-                if self.split == 'train':
-                    reference_image_path = base_path / 'cirr_dataset' / self.name_to_relpath[reference_name]
-                    reference_image = self.preprocess(PIL.Image.open(reference_image_path))
-                    target_hard_name = self.triplets[index]['target_hard']
-                    target_image_path = base_path / 'cirr_dataset' / self.name_to_relpath[target_hard_name]
-                    target_image = self.preprocess(PIL.Image.open(target_image_path))
-                    return reference_image, target_image, rel_caption
+            if self.split == "train":
+                ref_path = self.data_dir / self.name_to_relpath[reference_name]
+                reference_image = self.preprocess(PIL.Image.open(ref_path))
 
-                elif self.split == 'val':
-                    target_hard_name = self.triplets[index]['target_hard']
-                    return reference_name, target_hard_name, rel_caption, group_members
+                target_hard_name = self.triplets[index]["target_hard"]
+                target_path = self.data_dir / self.name_to_relpath[target_hard_name]
+                target_image = self.preprocess(PIL.Image.open(target_path))
 
-                elif self.split == 'test1':
-                    pair_id = self.triplets[index]['pairid']
-                    return pair_id, reference_name, rel_caption, group_members
+                return reference_image, target_image, rel_caption
 
-            elif self.mode == 'classic':
-                image_name = list(self.name_to_relpath.keys())[index]
-                image_path = base_path / 'cirr_dataset' / self.name_to_relpath[image_name]
-                im = PIL.Image.open(image_path)
-                image = self.preprocess(im)
-                return image_name, image
+            elif self.split == "val":
+                target_hard_name = self.triplets[index]["target_hard"]
+                return reference_name, target_hard_name, rel_caption, group_members
 
-            else:
-                raise ValueError("mode should be in ['relative', 'classic']")
+            elif self.split == "test1":
+                pair_id = self.triplets[index]["pairid"]
+                return pair_id, reference_name, rel_caption, group_members
 
-        except Exception as e:
-            print(f"Exception: {e}")
+        elif self.mode == "classic":
+            image_name = list(self.name_to_relpath.keys())[index]
+            image_path = self.data_dir / self.name_to_relpath[image_name]
+            image = self.preprocess(PIL.Image.open(image_path))
+            return image_name, image
 
-    def __len__(self):
-        if self.mode == 'relative':
+    def __len__(self) -> int:
+        if self.mode == "relative":
             return len(self.triplets)
-        elif self.mode == 'classic':
-            return len(self.name_to_relpath)
-        else:
-            raise ValueError("mode should be in ['relative', 'classic']")
+        return len(self.name_to_relpath)
