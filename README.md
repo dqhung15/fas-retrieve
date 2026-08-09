@@ -4,27 +4,29 @@
 
 This implementation leverages the architecture proposed in the paper **[CLIP4CIR: CLIP for Composed Image Retrieval](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://github.com/ABaldrati/CLIP4Cir&ved=2ahUKEwj0vMujwImWAxWNmlYBHcKQOPQQFnoECBkQAQ&usg=AOvVaw2NxBKAq6DgAJ-gUCYqy69L)**, combining CLIP-based visual and text embeddings via a specialized Combiner network to execute accurate vector search.
 
----
+This repository serves as a hands-on implementation of MLOps practices, focusing heavily on model tracking, pipeline orchestration, and containerization. Through this project, I have learned:
 
-## Architecture & Features
-
-* **Vector Search Database:** **Qdrant** for storing high-dimensional embeddings and serving fast similarity queries.
-* **Relational Database:** **PostgreSQL** for tracking data, metadata, and backend state.
-* **Workflow Orchestration:** **Apache Airflow** for managing ETL pipelines, embedding extraction, and Qdrant indexing.
-* **Model Tracking:** **MLflow** for experiment tracking, parameter monitoring, and artifact storage.
-* **Serving & Frontend:** **FastAPI** backend coupled with an **Nginx-served UI** for real-time retrieval.
+* How to move from local environments to design fully containerized, reproducible, and scalable microservices.
+* How to decouple heavy ML workloads from the application backend by automating embedding extraction and index updates via Airflow.
+* Gaining practical experience in setting up MLflow to systematically track experiments, making the fine-tuning process data-driven and organized.
+* Understanding the networking and data flow between services.
 
 ---
 
-## What I Learned
+## Working Process
 
-Building this MLOps pipeline provided practical experience in scaling research models into production-ready software:
+### User inputs image and text
 
-1. **Multimodal Embeddings & CIR:** Implementing CLIP4CIR architectures to project relative image-text edits into a unified latent space.
-2. **Vector Indexing & Retrieval:** Setting up and populating Qdrant collections for scalable, real-time nearest-neighbor search.
-3. **Pipeline Orchestration:** Automating offline data pipelines (embedding extraction, index generation) using Airflow DAGs.
-4. **Experiment Management:** Tracking model artifacts, checkpoints, and metrics centrally using MLflow.
-5. **Containerized MLOps Infrastructure:** Orchestrating multiple microservices (API, UI, MLflow, Airflow, Postgres, Qdrant) into a single cohesive network using Docker Compose.
+<img width="700" height="600" alt="image" src="https://github.com/user-attachments/assets/e394ad45-c68d-4cd6-b055-83d46e60a451" />
+
+## User clicks to an image
+
+<img width="700" height="600" alt="image" src="https://github.com/user-attachments/assets/61292cd5-165e-4584-9c38-b4981d92830e" />
+
+## Fine-tune pipeline
+
+<img width="700" height="600" alt="image" src="https://github.com/user-attachments/assets/8a821d84-5b2c-4066-82ca-95e6526b441c" />
+
 
 ---
 
@@ -32,15 +34,17 @@ Building this MLOps pipeline provided practical experience in scaling research m
 
 ### Prerequisites
 
-* Docker Engine (v20.10 or higher)
-* Docker Compose (v2.0 or higher)
-* Python 3.10+ (optional, for local development)
+* Docker Engine
+* Docker Compose 
+* Python 3.10+ 
 
 ---
 
 ### Installation & Setup
 
 #### 1. Clone the Repository
+
+For image data and model checkpoint, I would use the FashionIQ dataset and the model from the paper as the original.
 
 #### 2. Environment Configuration
 
