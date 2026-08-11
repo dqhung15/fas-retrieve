@@ -9,7 +9,7 @@ from qdrant_client import QdrantClient
 
 from model_core.combiner import Combiner
 from model_core.data_utils import targetpad_transform
-from services.api.app.core.config import settings
+from services.api.app.config import settings
 
 class AppState:
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

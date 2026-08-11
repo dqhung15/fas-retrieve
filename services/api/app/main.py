@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.api.app.core.model_loader import lifespan
-from services.api.app.api.routes import router
+from services.api.app.model_loader import lifespan
+from services.api.app.routes import router
 
 app = FastAPI(
   title="Fashion Retrieval API",

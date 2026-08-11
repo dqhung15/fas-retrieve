@@ -1,4 +1,4 @@
-from services.api.app.core.model_loader import ml_state
+from services.api.app.model_loader import ml_state
 from services.api.app.schemas import TrackInteractionRequest
 
 def log_interaction(payload: TrackInteractionRequest):
