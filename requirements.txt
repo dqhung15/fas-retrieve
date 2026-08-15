@@ -3,23 +3,24 @@ torch
 torchvision
 pillow
 numpy
-ftfy                 # Required by CLIP
-regex                # Required by CLIP
-tqdm                 # Required by CLIP
-git+https://github.com/openai/CLIP.git  # Official OpenAI CLIP model
+ftfy                
+regex                
+tqdm                 
+git+https://github.com/openai/CLIP.git  
 
 # --- Backend API ---
-fastapi              # High-performance web framework
-uvicorn[standard]    # ASGI server to run FastAPI
-pydantic             # Data validation and schemas
-python-dotenv        # To load .env secrets
-pyyaml               # To parse config.yaml
+fastapi              
+uvicorn[standard]    
+pydantic             
+python-dotenv        
+pyyaml               
 python-multipart
 
 # --- Databases ---
-qdrant-client        # Python client for Qdrant Vector DB
-psycopg2-binary      # PostgreSQL adapter for tracking user logs
+qdrant-client        
+psycopg2-binary      
+minio
 
 # --- MLOps & Tracking ---
-mlflow               # To track experiments and register models
-apache-airflow       # For local DAG development and autocomplete
+mlflow               
+apache-airflow       

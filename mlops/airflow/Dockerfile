@@ -14,5 +14,9 @@ RUN pip install --no-cache-dir \
   numpy \
   mlflow \
   psycopg2-binary \
-  email-validator \
+  "email-validator>=2.0" \
   git+https://github.com/openai/CLIP.git
+
+COPY --chown=airflow:root mlops/airflow/dags/ /opt/airflow/dags/
+COPY --chown=airflow:root mlops/airflow/scripts/ /opt/airflow/scripts/
+COPY --chown=airflow:root model_core/ /opt/airflow/model_core/

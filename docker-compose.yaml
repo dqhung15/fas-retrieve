@@ -8,13 +8,26 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
       POSTGRES_DB: ${POSTGRES_DB:-tracking_db}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-tracking_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  postgres-init:
+    image: postgres:15-alpine
+    container_name: ml_postgres_init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-admin123}
+    entrypoint: >
+      /bin/sh -c "
+      psql -h postgres -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-tracking_db} -c 'CREATE DATABASE airflow_db;' || true;
+      psql -h postgres -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-tracking_db} -c 'CREATE DATABASE mlflow_db;' || true;
+      exit 0;
+      "
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -22,8 +35,38 @@ services:
     ports:
       - "6333:6333" # REST API
       - "6334:6334" # gRPC API 
-    volumes:
-      - qdrant_data:/qdrant/storage
+
+  minio:
+    image: minio/minio:latest
+    container_name: ml_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 1m
+      timeout: 30s
+      retries: 5  
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: ml_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123} &&
+      /usr/bin/mc mb myminio/dataset --ignore-existing &&
+      /usr/bin/mc mb myminio/uploads --ignore-existing &&
+      /usr/bin/mc mb myminio/checkpoint --ignore-existing &&
+      /usr/bin/mc anonymous set download myminio/dataset &&
+      exit 0;
+      "
 
   api:
     build:
@@ -38,14 +81,17 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-tracking_db}
       - POSTGRES_HOST=postgres
       - QDRANT_HOST=qdrant
-      - COMBINER_CHECKPOINT=${COMBINER_CHECKPOINT}
-    volumes:
-      - ./data:/app/data
-      - ./checkpoint:/app/checkpoint
-      - ./model_core:/app/model_core
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - MINIO_BUCKET_DATASET=dataset
+      - MINIO_BUCKET_UPLOADS=uploads
+      - MINIO_BUCKET_CHECKPOINT=checkpoint
     depends_on:
       - postgres
       - qdrant
+      - minio
+      - minio-init
 
   ui:
     build:
@@ -53,8 +99,6 @@ services:
     container_name: ml_ui
     ports:
       - "3000:80"
-    volumes:
-      - ./data:/usr/share/nginx/html/data:ro
     depends_on:
       - api
 
@@ -63,39 +107,38 @@ services:
     container_name: ml_mlflow
     ports:
       - "5000:5000"
-    volumes:
-      - ./mlops/mlflow:/mlflow
+    environment:
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123} 
     command: >
-      bash -c "pip install mlflow && 
+      bash -c "pip install mlflow boto3 psycopg2-binary && 
       mlflow server --host 0.0.0.0 
       --port 5000 
-      --backend-store-uri sqlite:////mlflow/mlflow.db 
-      --default-artifact-root /mlflow/artifacts 
+      --backend-store-uri postgresql+psycopg2://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres/mlflow_db 
+      --default-artifact-root s3://checkpoint/ 
       --allowed-hosts mlflow,mlflow:5000,localhost,0.0.0.0"
+    depends_on:
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      postgres-init:
+        condition: service_completed_successfully
 
   airflow:
     build:
-      context: ./mlops/airflow
+      context: .
+      dockerfile: mlops/airflow/Dockerfile
     container_name: ml_airflow
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres/${POSTGRES_DB:-tracking_db}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres/airflow_db      
       - PYTHONPATH=/opt/airflow
-    volumes:
-      - ./mlops/airflow/dags:/opt/airflow/dags
-      - ./mlops/airflow/scripts:/opt/airflow/scripts
-      - ./model_core:/opt/airflow/model_core
-      - ./data:/app/data
-      - ./checkpoint:/app/checkpoint
     command: standalone
     depends_on:
-      - postgres
-
-volumes:
-  postgres_data:
-    name: ml_postgres_data
-  qdrant_data:
-    name: ml_qdrant_data
+      postgres-init:
+        condition: service_completed_successfully

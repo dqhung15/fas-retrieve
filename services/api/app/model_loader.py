@@ -6,6 +6,7 @@ import clip
 import torch
 from fastapi import FastAPI
 from qdrant_client import QdrantClient
+from minio import Minio
 
 from model_core.combiner import Combiner
 from model_core.data_utils import targetpad_transform
@@ -18,6 +19,7 @@ class AppState:
   combiner = None
   qdrant: QdrantClient = None
   db_conn = None
+  obj_storage = None
 
 ml_state = AppState()
 
@@ -34,6 +36,17 @@ async def lifespan(app: FastAPI):
   # 3. Load Combiner
   feature_dim = ml_state.clip_model.visual.output_dim
   ml_state.combiner = Combiner(clip_feature_dim=feature_dim, projection_dim=2560, hidden_dim=5120)
+
+  try:
+    print("Checking MinIO for updated combiner checkpoint...")
+    ml_state.obj_storage.fget_object(
+      bucket_name="checkpoint",
+      object_name="combiner_latest.pt",
+      file_path=settings.COMBINER_CHECKPOINT
+    )
+    print("Successfully downloaded latest checkpoint.")
+  except Exception as e:
+      print(f"No checkpoint found in MinIO or download failed: {e}")
   
   if os.path.exists(settings.COMBINER_CHECKPOINT):
     checkpoint = torch.load(settings.COMBINER_CHECKPOINT, map_location=ml_state.device)
@@ -50,11 +63,17 @@ async def lifespan(app: FastAPI):
     host=settings.POSTGRES_HOST,
     port=settings.POSTGRES_PORT
   )
+  ml_state.obj_storage = Minio(
+    endpoint=os.getenv("MINIO_ENDPOINT", "minio:9000"),
+    access_key=os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
+    secret_key=os.getenv("MINIO_SECRET_KEY", "minioadmin123"),
+    secure=False,
+  )
   
   yield
   
-  # Teardown
   ml_state.db_conn.close()
   del ml_state.clip_model
   del ml_state.combiner
+  del ml_state.obj_storage
   torch.cuda.empty_cache()
