@@ -1,6 +1,6 @@
 // Configuration
-const API_BASE_URL = 'http://localhost:8000/api/v1';
-const DATASET_URL_BASE = 'http://localhost:3000/data/fashionIQ_dataset/images';
+const API_BASE_URL = 'http://localhost:8000';
+const DATASET_URL_BASE = 'http://localhost:9000/dataset/';
 
 // Generate a unique session ID for tracking
 const sessionId = crypto.randomUUID();

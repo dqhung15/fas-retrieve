@@ -7,6 +7,7 @@ import clip
 import PIL.Image
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
+from minio import Minio
 
 from model_core.combiner import Combiner
 
@@ -137,8 +138,21 @@ def train():
     print(f"Training Complete. Average Loss: {avg_loss:.4f}")
 
     mlflow.log_metric("train_loss", avg_loss)
-    torch.save(model.state_dict(), CHECKPOINT_PATH)
+    torch.save({"Combiner": model.state_dict()}, CHECKPOINT_PATH)
     mlflow.pytorch.log_model(model, "combiner_model")
+
+    print("Uploading new checkpoint to MinIO...")
+    minio_client = Minio(
+      os.getenv("MINIO_ENDPOINT", "minio:9000"),
+      access_key=os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
+      secret_key=os.getenv("MINIO_SECRET_KEY", "minioadmin123"),
+      secure=False
+    )
+    minio_client.fput_object(
+      bucket_name="checkpoint", 
+      object_name="combiner_latest.pt", 
+      file_path=CHECKPOINT_PATH
+    )
 
 if __name__ == "__main__":
   train()

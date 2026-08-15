@@ -7,8 +7,8 @@ import clip
 import torch
 import PIL.Image
 
-from services.api.app.core.config import settings
-from services.api.app.core.model_loader import ml_state
+from services.api.app.config import settings
+from services.api.app.model_loader import ml_state
 from services.api.app.schemas import SearchResultItem
 
 logger = logging.getLogger(__name__)
